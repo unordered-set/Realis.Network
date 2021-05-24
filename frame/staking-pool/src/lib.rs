@@ -15,10 +15,6 @@
 #![recursion_limit = "128"]
 
 #[cfg(test)]
-mod darwinia_tests;
-#[cfg(test)]
-mod inflation_tests;
-#[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod substrate_tests;

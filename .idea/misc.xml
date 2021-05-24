@@ -7,11 +7,10 @@
   <component name="MakefileSettings">
     <option name="linkedExternalProjectsSettings">
       <MakefileProjectSettings>
-        <option name="cleanTarget" value="build" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
         <option name="modules">
           <set>
-            <option value="\\wsl$\Ubuntu-18.04\home\substrate\Tools\Realis.Network" />
+            <option value="$PROJECT_DIR$" />
           </set>
         </option>
         <option name="version" value="2" />
