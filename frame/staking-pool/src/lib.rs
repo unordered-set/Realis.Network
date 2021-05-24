@@ -1906,32 +1906,33 @@ impl<T: Config> Module<T> {
 	fn make_payout(
 		stash: &T::AccountId,
 		amount: CurBalance<T>,
-	) -> Option<CurPositiveImbalance<T>> {
+	  ) -> Option<CurPositiveImbalance<T>> {
 		let dest = Self::payee(stash);
+		let pallet_id = Self::account_id();
 		match dest {
-			RewardDestination::Controller => Self::bonded(stash).and_then(|controller| {
-				Some(T::CurCurrency::deposit_creating(&controller, amount))
+		  RewardDestination::Controller => Self::bonded(stash).and_then(|controller| {
+			Some(T::CurCurrency::transfer(&pallet_id, &controller, amount, KeepAlive))
+		  }),
+		  RewardDestination::Stash => T::CurCurrency::deposit_into_existing(stash, amount).ok(),
+		  RewardDestination::Staked => Self::bonded(stash)
+			.and_then(|c| Self::ledger(&c).map(|l| (c, l)))
+			.and_then(|(c, mut l)| {
+			  let r = T::CurCurrency::deposit_into_existing(stash, amount).ok();
+	
+			  if r.is_some() {
+				l.active_cur += amount;
+	
+				Self::update_ledger(&c, &mut l);
+			  }
+	
+			  r
 			}),
-			RewardDestination::Stash => T::CurCurrency::deposit_into_existing(stash, amount).ok(),
-			RewardDestination::Staked => Self::bonded(stash)
-				.and_then(|c| Self::ledger(&c).map(|l| (c, l)))
-				.and_then(|(c, mut l)| {
-					let r = T::CurCurrency::deposit_into_existing(stash, amount).ok();
-
-					if r.is_some() {
-						l.active_cur += amount;
-
-						Self::update_ledger(&c, &mut l);
-					}
-
-					r
-				}),
-			RewardDestination::Account(dest_account) => {
-				Some(T::CurCurrency::deposit_creating(&dest_account, amount))
-			}
-			RewardDestination::None => None,
+		  RewardDestination::Account(dest_account) => {
+			Some(T::CurCurrency::transfer(&pallet_id, &dest, amount, KeepAlive))
+		  }
+		  RewardDestination::None => None,
 		}
-	}
+	  }
 
 	/// Plan a new session potentially trigger a new era.
 	fn new_session(session_index: SessionIndex) -> Option<Vec<T::AccountId>> {
