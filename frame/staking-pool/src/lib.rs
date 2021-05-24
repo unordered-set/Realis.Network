@@ -2076,7 +2076,7 @@ impl<T: Config> Module<T> {
 			LivingTime::put(living_time + era_duration);
 			// Set ending era reward.
 			<ErasValidatorReward<T>>::insert(&active_era.index, validator_payout);
-			T::CurCurrency::deposit_creating(&Self::account_id(), validator_payout);
+			// T::CurCurrency::deposit_creating(&Self::account_id(), validator_payout);
 			T::CurRewardRemainder::on_unbalanced(T::CurCurrency::issue(rest));
 		}
 	}
