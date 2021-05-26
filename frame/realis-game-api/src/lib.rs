@@ -4,7 +4,7 @@
 /// Learn more about FRAME and the core library of Substrate FRAME pallets:
 /// https://substrate.dev/docs/en/knowledgebase/runtime/frame
 
-use frame_support::{decl_module, decl_storage, decl_event, decl_error, ensure, dispatch, traits::Get};
+use frame_support::{decl_module, decl_storage, decl_event, decl_error, ensure, dispatch, traits::Get, PalletId};
 use frame_system::ensure_root;
 use sp_std::prelude::*;
 use pallet_balances;
@@ -93,10 +93,21 @@ decl_module! {
 
 
         #[weight = 10_000]
-        pub fn transfer(origin, dest: <T::Lookup as StaticLookup>::Source, value: <T as pallet_balances::Config>::Balance) -> dispatch::DispatchResultWithPostInfo {
-            return pallet_balances::Pallet::<T>::transfer(origin, dest, value);
+        pub fn transfer(pallet_id: Self::account_id(), dest: <T::Lookup as StaticLookup>::Source, value: <T as pallet_balances::Config>::Balance) -> dispatch::DispatchResultWithPostInfo {
+            return pallet_balances::Pallet::<T>::transfer(pallet_id, dest, value);
 		}
+
+        #[weight = 10_000]
+        pub fn transfer_with_fees(pallet_id: Self::account_id(), dest: <T::Lookup as StaticLookup>::Source, value: <T as pallet_balances::Config>::Balance) {
+            pallet_utility::batch(pallet_balances::Pallet::<T>::transfer(pallet_id, dest, value))
+        }
     }
+}
+
+impl<T: Config> Module<T> {
+	pub fn account_id() -> T::AccountId {
+		T::PalletId::get().into_account()
+	}
 }
 
 

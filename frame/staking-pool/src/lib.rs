@@ -161,7 +161,6 @@ pub trait OnDepositRedeem<AccountId, Balance> {
 		months: u8,
 	) -> DispatchResult;
 }
-
 pub trait LockableCurrency<AccountId>: Currency<AccountId> {
 	/// The quantity used to denote time; usually just a `BlockNumber`.
 	type Moment;
@@ -278,6 +277,15 @@ pub trait Config: frame_system::Config + SendTransactionTypes<Call<Self>> {
 
 	/// Weight information for extrinsics in this pallet.
 	type WeightInfo: WeightInfo;
+}
+
+pub trait CurTransfer<AccountId, CurBalance, CurPositiveImbalance> {
+	fn transfer(
+		source: &AccountId,
+		dest: &AccountId,
+		value: CurBalance,
+	) -> CurPositiveImbalance;
+
 }
 
 /// Means for interacting with a specialized version of the `session` trait.
@@ -1907,7 +1915,7 @@ impl<T: Config> Module<T> {
 		let pallet_id = Self::account_id();
 		match dest {
 		  RewardDestination::Controller => Self::bonded(stash).and_then(|controller| {
-			Some(T::CurCurrency::transfer(&pallet_id, &controller, amount, KeepAlive))
+			Some(Self::transfer(&pallet_id, &controller, amount))
 		  }),
 		  RewardDestination::Stash => T::CurCurrency::deposit_into_existing(stash, amount).ok(),
 		  RewardDestination::Staked => Self::bonded(stash)
@@ -1924,7 +1932,7 @@ impl<T: Config> Module<T> {
 			  r
 			}),
 		  RewardDestination::Account(dest_account) => {
-			Some(T::CurCurrency::transfer(&pallet_id, &dest, amount, KeepAlive))
+			Some(Self::transfer(&pallet_id, &dest_account, amount))
 		  }
 		  RewardDestination::None => None,
 		}
@@ -2725,7 +2733,7 @@ impl<T: Config> OnDepositRedeem<T::AccountId, CurBalance<T>> for Module<T> {
 		if let Some(controller) = Self::bonded(&stash) {
 			let mut ledger = Self::ledger(&controller).ok_or(<Error<T>>::NotController)?;
 
-			T::CurCurrency::transfer(&backing, &stash, amount, KeepAlive)?;
+			Self::transfer(&backing, &stash, amount);
 
 			let StakingLedger {
 				active_cur,
@@ -2756,7 +2764,7 @@ impl<T: Config> OnDepositRedeem<T::AccountId, CurBalance<T>> for Module<T> {
 				<Error<T>>::AlreadyPaired
 			);
 
-			T::CurCurrency::transfer(&backing, &stash, amount, KeepAlive)?;
+			Self::transfer(&backing, &stash, amount);
 
 			<Bonded<T>>::insert(&stash, controller);
 			<Payee<T>>::insert(&stash, RewardDestination::Stash);
