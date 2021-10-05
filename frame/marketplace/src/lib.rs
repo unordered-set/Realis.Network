@@ -3,20 +3,19 @@
 use frame_support::dispatch;
 pub use pallet::*;
 use sp_std::prelude::*;
+#[allow(unused_imports)]
 use sp_std::vec;
 
 #[frame_support::pallet]
 pub mod pallet {
+    use super::*;
     use frame_support::pallet_prelude::*;
+    use frame_support::traits::{Currency, ExistenceRequirement};
     use frame_system::pallet_prelude::*;
+    use node_primitives::Balance;
     use pallet_nft as Nft;
     use realis_primitives::*;
-
-    use super::*;
-    use frame_support::traits::{Currency, ExistenceRequirement};
-    use node_primitives::Balance;
     use sp_runtime::ArithmeticError;
-    use sp_std::vec;
 
     #[pallet::pallet]
     #[pallet::generate_store(pub (super) trait Store)]
@@ -55,6 +54,8 @@ pub mod pallet {
     #[pallet::error]
     pub enum Error<T> {
         CannotForSaleThisNft,
+        CannotSellAgainNft,
+        CannotChangePriceNft,
     }
 
     #[pallet::storage]
@@ -72,11 +73,14 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         #[pallet::weight(90_000_000)]
         pub fn sell_nft(origin: OriginFor<T>, token_id: TokenId, price: Balance) -> DispatchResult {
-            let _who = ensure_signed(origin)?;
+            let who = ensure_signed(origin)?;
             let owner = pallet_nft::AccountForToken::<T>::get(token_id).unwrap();
-            // if token_in_storage[0].1 == Status::InDelegation || token_in_storage[0].1 == Status::OnSell {
-            //     pallet::DispatchError::Other("CannotForSaleThisNft");
-            // }
+            let tokens = Nft::TokensList::<T>::get(who.clone()).unwrap();
+            for token in tokens {
+                if token.0.id == token_id {
+                    ensure!(token.1 == Status::Free, Error::<T>::CannotSellAgainNft);
+                };
+            }
             let old_token = Self::sell(owner, token_id, price).unwrap();
             // Call mint event
             Self::deposit_event(Event::NftForSale(token_id, price, old_token));
@@ -103,9 +107,13 @@ pub mod pallet {
             price: Balance,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
-            // if token_in_storage[0].1 == Status::InDelegation || token_in_storage[0].1 == Status::OnSell {
-            //     pallet::DispatchError::Other("CannotForSaleThisNft");
-            // }
+            let tokens = Nft::TokensList::<T>::get(who.clone()).unwrap();
+            let owner = pallet_nft::AccountForToken::<T>::get(token_id).unwrap();
+            for token in tokens {
+                if token.0.id == token_id {
+                    ensure!(who == owner, Error::<T>::CannotChangePriceNft);
+                };
+            }
             Self::change_price(who.clone(), token_id, price).unwrap();
 
             // Call mint event
@@ -131,7 +139,7 @@ pub mod pallet {
     }
 
     impl<T: Config> Pallet<T> {
-        fn sell(
+        pub fn sell(
             seller: <T as frame_system::Config>::AccountId,
             token_id: TokenId,
             price: Balance,
@@ -172,7 +180,7 @@ pub mod pallet {
             Ok(old_token)
         }
 
-        fn buy(
+        pub fn buy(
             buyer: <T as frame_system::Config>::AccountId,
             token_id: TokenId,
         ) -> dispatch::result::Result<(), dispatch::DispatchError> {
@@ -192,7 +200,16 @@ pub mod pallet {
                     });
             });
 
-            T::Currency::transfer(&buyer, &owner, balance[0], ExistenceRequirement::KeepAlive)?;
+            // let five_percent = balance[0] / 100 * 5;
+
+            // let amount = balance[0] / 100 * 95;
+
+            <T as pallet::Config>::Currency::transfer(
+                &buyer,
+                &owner,
+                balance[0],
+                ExistenceRequirement::KeepAlive,
+            )?;
 
             NFTForSaleInAccount::<T>::mutate(&owner, |tokens| {
                 let tokens_mut = tokens.as_mut().unwrap();
@@ -239,7 +256,7 @@ pub mod pallet {
             Ok(())
         }
 
-        fn change_price(
+        pub fn change_price(
             owner: <T as frame_system::Config>::AccountId,
             token_id: TokenId,
             new_price: Balance,
@@ -279,7 +296,7 @@ pub mod pallet {
             Ok(())
         }
 
-        fn remove(
+        pub fn remove(
             owner: <T as frame_system::Config>::AccountId,
             token_id: TokenId,
         ) -> dispatch::result::Result<(), dispatch::DispatchError> {

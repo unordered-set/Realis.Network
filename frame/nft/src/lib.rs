@@ -163,9 +163,10 @@ pub mod pallet {
         pub fn mint(
             origin: OriginFor<T>,
             target_account: T::AccountId,
+            name: String,
             token_id: TokenId,
+            id: u32,
             rarity: Rarity,
-            basic: Basic,
             link: String,
         ) -> DispatchResult {
             // Check is signed correct
@@ -176,7 +177,7 @@ pub mod pallet {
             let link = "https://ipfs.io/ipfs/".to_owned() + sp_std::str::from_utf8(&link).unwrap();
             let token = Token {
                 id: token_id,
-                token_type: TokenType::Basic(basic, rarity, String::from(link)),
+                token_type: TokenType::Basic( rarity, String::from(link), id, name),
             };
 
             // Push token on account
@@ -219,11 +220,11 @@ pub mod pallet {
             for token in tokens {
                 if token.0.id == token_id {
                     ensure!(
-                        token.1 != Status::OnSell,
+                        token.1 == Status::OnSell,
                         Error::<T>::CannotTransferNftBecauseThisNftInMarketplace
                     );
                     ensure!(
-                        token.1 != Status::InDelegation,
+                        token.1 == Status::InDelegation,
                         Error::<T>::CannotTransferNftBecauseThisNftOnAnotherUser
                     );
                 };
