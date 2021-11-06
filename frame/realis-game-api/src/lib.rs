@@ -28,7 +28,7 @@ pub mod pallet {
     use sp_runtime::traits::{AccountIdConversion, Saturating};
 
     use pallet_nft as NFT;
-    use realis_primitives::{Rarity, Status, String, TokenId};
+    use realis_primitives::{Rarity, Status, String, TokenId, TokenType};
 
     type BalanceOf<T> =
         <<T as Config>::ApiCurrency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -73,7 +73,7 @@ pub mod pallet {
         /// Pallet Balance
         Balance(T::AccountId, BalanceOf<T>),
         ///
-        AddToWhiteList(T::AccountId, T::AccountId),
+        AddToWhiteList(T::AccountId),
     }
 
     #[pallet::error]
@@ -107,6 +107,10 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn whitelist)]
     pub type Whitelist<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn validator_whitelist)]
+    pub type ValidatorWhitelist<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -151,7 +155,7 @@ pub mod pallet {
             origin: OriginFor<T>,
             target_account: T::AccountId,
             token_id: TokenId,
-	        mint_id: u32,
+            mint_id: u32,
             name: String,
             rarity: Rarity,
             id: String,
@@ -173,8 +177,8 @@ pub mod pallet {
                 origin.clone(),
                 target_account.clone(),
                 name,
-		token_id,
-		mint_id,
+                token_id,
+                mint_id,
                 rarity,
                 link,
             )?;
@@ -198,11 +202,11 @@ pub mod pallet {
             for token in tokens {
                 if token.0.id == token_id {
                     ensure!(
-                        token.1 == Status::OnSell,
+                        token.1 != Status::OnSell,
                         Error::<T>::CannotTransferNftBecauseThisNftInMarketplace
                     );
                     ensure!(
-                        token.1 == Status::InDelegation,
+                        token.1 != Status::InDelegation,
                         Error::<T>::CannotTransferNftBecauseThisNftOnAnotherUser
                     );
                 };
@@ -233,11 +237,11 @@ pub mod pallet {
             for token in tokens {
                 if token.0.id == token_id {
                     ensure!(
-                        token.1 == Status::OnSell,
+                        token.1 != Status::OnSell,
                         Error::<T>::CannotTransferNftBecauseThisNftInMarketplace
                     );
                     ensure!(
-                        token.1 == Status::InDelegation,
+                        token.1 != Status::InDelegation,
                         Error::<T>::CannotTransferNftBecauseThisNftOnAnotherUser
                     );
                 };
@@ -399,8 +403,11 @@ pub mod pallet {
             );
 
             Whitelist::<T>::mutate(|member_whitelist| {
-                member_whitelist.push(who);
+                member_whitelist.push(who.clone());
             });
+
+            Self::deposit_event(Event::AddToWhiteList(who));
+
             Ok(())
         }
 
@@ -412,6 +419,40 @@ pub mod pallet {
             // Check if account that signed operation have permission for this operation
             Whitelist::<T>::mutate(|member_whitelist| {
                 let index = member_whitelist.iter().position(|token| *token == who);
+                member_whitelist.remove(index.unwrap())
+            });
+            Ok(())
+        }
+
+        #[pallet::weight((T::WeightInfoOf::spend_in_game(), Pays::No))]
+        pub fn add_to_validator_whitelist(
+            origin: OriginFor<T>,
+            account_id: T::AccountId,
+        ) -> DispatchResult {
+            // Check is signed correct
+            let who = ensure_signed(origin)?;
+            // Check if account that signed operation have permission for this operation
+            ensure!(
+                !Self::whitelist().contains(&who),
+                Error::<T>::AccountAlreadyInWhitelist
+            );
+
+            ValidatorWhitelist::<T>::mutate(|member_whitelist| {
+                member_whitelist.push(account_id);
+            });
+            Ok(())
+        }
+
+        #[pallet::weight((T::WeightInfoOf::spend_in_game(), Pays::No))]
+        pub fn remove_from_validator_whitelist(
+            origin: OriginFor<T>,
+            account_id: T::AccountId,
+        ) -> DispatchResult {
+            // Check is signed correct
+            let _who = ensure_signed(origin)?;
+            // Check if account that signed operation have permission for this operation
+            ValidatorWhitelist::<T>::mutate(|member_whitelist| {
+                let index = member_whitelist.iter().position(|user| *user == account_id);
                 member_whitelist.remove(index.unwrap())
             });
             Ok(())
@@ -432,7 +473,17 @@ pub mod pallet {
                 Error::<T>::UserNotFoundInWhitelist
             );
 
-            marketplace::Pallet::<T>::sell(account_id, token_id, amount)?;
+            let tokens = NFT::TokensList::<T>::get(account_id.clone()).unwrap();
+            for token in tokens {
+                if token.0.id == token_id {
+                    ensure!(token.1 == Status::Free, Error::<T>::CannotTransferNftBecauseThisNftInMarketplace);
+
+                    let TokenType::Basic(rarity, _, _, _) =  token.0.token_type;
+                    marketplace::Pallet::<T>::sell(account_id.clone(), token_id, rarity, amount)?;
+                };
+            }
+
+
             Ok(())
         }
 
