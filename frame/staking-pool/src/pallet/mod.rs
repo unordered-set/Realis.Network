@@ -570,6 +570,9 @@ pub mod pallet {
         Balance(T::AccountId, BalanceOf<T>),
         /// LIS was transfered from player to player
         FundsTransferred(T::AccountId, T::AccountId, BalanceOf<T>),
+
+        // FIXME debug staff
+        Debug(T::AccountId, BalanceOf<T>),
     }
 
     #[pallet::error]

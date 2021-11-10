@@ -269,6 +269,10 @@ impl<T: Config> Pallet<T> {
             ExistenceRequirement::KeepAlive,
         )
         .map_err(|_| ())?;
+
+        Self::deposit_event(Event::<T>::Debug(stash.clone(), amount));
+        Self::deposit_event(Event::<T>::Debug(stash.clone(), imbalance.peek()));
+
         let dest = Self::payee(stash);
         match dest {
             RewardDestination::Controller => match Self::bonded(stash) {
