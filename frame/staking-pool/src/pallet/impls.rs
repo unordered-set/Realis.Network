@@ -177,9 +177,18 @@ impl<T: Config> Pallet<T> {
         let validator_prefs = Self::eras_validator_prefs(&era, &validator_stash);
         // Validator first gets a cut off the top.
         let validator_commission = validator_prefs.commission;
-        let validator_commission_payout = validator_commission * validator_total_payout;
 
-        let validator_leftover_payout = validator_total_payout - validator_commission_payout;
+        // ORIGINAL
+        // let validator_commission_payout = validator_commission * validator_total_payout;
+        // NEW
+        let validator_commission_payout_new = validator_commission * validator_total_payout_new;
+
+        // ORIGINAL
+        // let validator_leftover_payout = validator_total_payout - validator_commission_payout;
+        // NEW
+        // Выплата с учетом коммисии валидатора
+        let validator_leftover_payout_new = validator_total_payout_new - validator_commission_payout_new;
+
         // Now let's calculate how this is split to the validator.
         let validator_exposure_part = Perbill::from_rational(exposure.own, exposure.total);
         // ORIGINAL

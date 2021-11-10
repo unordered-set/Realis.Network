@@ -535,7 +535,7 @@ pub mod pallet {
     #[pallet::metadata(T::AccountId = "AccountId", BalanceOf<T> = "Balance")]
     pub enum Event<T: Config> {
         /// The era payout has been set; the first balance is the validator-payout; the second is
-        /// the remainder from the maximum amount of reward.
+        /// the remainder from the maximum amount of reward.+
         /// \[era_index, validator_payout, remainder\]
         EraPaid(EraIndex, BalanceOf<T>, BalanceOf<T>),
         /// The nominator has been rewarded by this amount. \[stash, amount\]
