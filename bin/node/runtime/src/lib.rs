@@ -59,7 +59,7 @@ use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{
     create_runtime_str,
-    curve::PiecewiseLinear,
+    // curve::PiecewiseLinear,
     generic, impl_opaque_keys,
     traits::{
         self, BlakeTwo256, Block as BlockT, ConvertInto, NumberFor, OpaqueKeys,
@@ -1190,23 +1190,23 @@ impl pallet_nft::Config for Runtime {
     type WeightInfoNft = pallet_nft::weights::SubstrateWeight<Runtime>;
 }
 
-pallet_staking_reward_curve::build! {
-    const REWARD_CURVE: PiecewiseLinear<'static> = curve!(
-        min_inflation: 0_025_000,
-        max_inflation: 0_200_000,
-        ideal_stake: 0_500_000,
-        falloff: 0_050_000,
-        max_piece_count: 40,
-        test_precision: 0_005_000,
-    );
-}
+// pallet_staking_reward_curve::build! {
+//     const REWARD_CURVE: PiecewiseLinear<'static> = curve!(
+//         min_inflation: 0_025_000,
+//         max_inflation: 0_200_000,
+//         ideal_stake: 0_500_000,
+//         falloff: 0_050_000,
+//         max_piece_count: 40,
+//         test_precision: 0_005_000,
+//     );
+// }
 
 parameter_types! {
     pub const StakingPalletId: PalletId = PalletId(*b"da/staki");
     pub const SessionsPerEra: sp_staking::SessionIndex = 6;
     pub const BondingDuration: pallet_staking::EraIndex = 28;
     pub const SlashDeferDuration: pallet_staking::EraIndex = 27; // 1/4 the bonding duration.
-    pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
+    // pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
     pub const MaxNominatorRewardedPerValidator: u32 = 256;
     pub OffchainRepeat: BlockNumber = 5;
 }
@@ -1228,7 +1228,7 @@ impl pallet_staking::Config for Runtime {
     /// A super-majority of the council can cancel the slash.
     type SlashCancelOrigin = EnsureRoot<AccountId>;
     type SessionInterface = Self;
-    type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
+    type EraPayout = pallet_staking::NewConvertCurve<Self>;
     type NextNewSession = Session;
     type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
     type ElectionProvider = ElectionProviderMultiPhase;
