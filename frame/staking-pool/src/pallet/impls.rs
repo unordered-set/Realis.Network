@@ -392,8 +392,11 @@ impl<T: Config> Pallet<T> {
 
             let era_duration = (now_as_millis_u64 - active_era_start).saturated_into::<u64>();
             let staked = Self::eras_total_stake(&active_era.index);
-            let issuance = T::Currency::total_issuance();
-            let (validator_payout, rest) = T::EraPayout::era_payout(staked, issuance, era_duration);
+            let account_id = T::PalletId::get().into_account();
+            let total_balance =
+                T::Currency::free_balance(&account_id)
+                    .saturating_sub(T::Currency::minimum_balance());
+            let (validator_payout, rest) = T::EraPayout::era_payout(staked, total_balance, era_duration);
 
             Self::deposit_event(Event::<T>::EraPaid(
                 active_era.index,
