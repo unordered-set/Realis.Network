@@ -58,8 +58,7 @@ use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{
-    create_runtime_str,
-    generic, impl_opaque_keys,
+    create_runtime_str, generic, impl_opaque_keys,
     traits::{
         self, BlakeTwo256, Block as BlockT, ConvertInto, NumberFor, OpaqueKeys,
         SaturatedConversion, StaticLookup,
@@ -116,9 +115,9 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
     spec_version: 277,
-    impl_version: 2,
+    impl_version: 3,
     apis: RUNTIME_API_VERSIONS,
-    transaction_version: 6,
+    transaction_version: 7,
 };
 
 /// The BABE epoch configuration at genesis.
@@ -1234,20 +1233,7 @@ impl realis_game_api::Config for Runtime {
     type PalletId = GameApiPalletId;
     type ApiCurrency = Balances;
     type StakingPoolId = StakingPalletId;
-    type WeightInfoOf = realis_game_api::weights::SubstrateWeight<Runtime>;
-}
-
-parameter_types! {
-    pub Prefix: &'static [u8] = b"Pay LIS to the Realis account:";
-}
-
-impl runtime_common::Config for Runtime {
-    type Event = Event;
-    type VestingSchedule = Vesting;
-    type Prefix = Prefix;
-    /// At least 3/4 of the council must agree to a claim move before it can happen.
-    type MoveClaimOrigin = EnsureRoot<AccountId>;
-    type WeightInfo = runtime_common::weights::WeightInfo<Runtime>;
+    type WeightInfoRealis = realis_game_api::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -1258,16 +1244,19 @@ impl realis_bridge::Config for Runtime {
     type Event = Event;
     type BridgeCurrency = Balances;
     type PalletId = RealisBridgePalletId;
+    type WeightInfoBridge = realis_bridge::weights::SubstrateWeight<Runtime>;
 }
 
 impl marketplace::Config for Runtime {
     type Event = Event;
-    type Currency = Balances;
+    type MarketCurrency = Balances;
+    type WeightInfoMarketplace = marketplace::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_nft_delegate::Config for Runtime {
     type Event = Event;
-    type Currency = Balances;
+    type DelegateCurrency = Balances;
+    type WeightInfoNftDelegate = pallet_nft_delegate::weights::SubstrateWeight<Runtime>;
 }
 
 construct_runtime!(
@@ -1321,7 +1310,6 @@ construct_runtime!(
         NftDelegate: pallet_nft_delegate::{Pallet, Call, Storage, Event<T>},
         RealisGameApi: realis_game_api::{Pallet, Call, Event<T>, Config<T>, Storage},
         Marketplace: marketplace::{Pallet, Call, Event<T>, Storage},
-        Claims: runtime_common::{Pallet, Call, Storage, Event<T>, Config<T>, ValidateUnsigned},
     }
 );
 
@@ -1685,6 +1673,12 @@ impl_runtime_apis! {
             list_benchmark!(list, extra, pallet_utility, Utility);
             list_benchmark!(list, extra, pallet_vesting, Vesting);
 
+            list_benchmark!(list, extra, pallet_nft, Nft);
+            list_benchmark!(list, extra, pallet_nft_delegate, NftDelegate);
+            list_benchmark!(list, extra, marketplace, Marketplace);
+            list_benchmark!(list, extra, realis_game_api, RealisGameApi);
+            list_benchmark!(list, extra, realis_bridge, RealisBridge);
+
             let storage_info = AllPalletsWithSystem::storage_info();
 
             return (list, storage_info)
@@ -1757,6 +1751,13 @@ impl_runtime_apis! {
             //add_benchmark!(params, batches, pallet_uniques, Uniques);
             add_benchmark!(params, batches, pallet_utility, Utility);
             add_benchmark!(params, batches, pallet_vesting, Vesting);
+
+
+            add_benchmark!(params, batches, pallet_nft, Nft);
+            add_benchmark!(params, batches, pallet_nft_delegate, NftDelegate);
+            add_benchmark!(params, batches, marketplace, Marketplace);
+            add_benchmark!(params, batches, realis_game_api, RealisGameApi);
+            add_benchmark!(params, batches, realis_bridge, RealisBridge);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)

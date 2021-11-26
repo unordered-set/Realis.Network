@@ -1,6 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-
+#[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+pub mod weights;
+pub use weights::WeightInfoNftDelegate;
 
 pub use pallet::*;
 
@@ -15,6 +17,7 @@ pub mod pallet {
     use node_primitives::{Balance};
     use core::convert::From;
     use frame_support::sp_runtime::traits::AccountIdConversion;
+    use frame_support::sp_runtime::traits::BlockNumberProvider;
 
     use realis_primitives::{Status, TokenId};
     use pallet_nft as PalletNft;
@@ -32,7 +35,9 @@ pub mod pallet {
         /// Because this pallet emits events, it depends on the runtime's definition of an event.
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
-        type Currency: Currency<Self::AccountId, Balance = Balance>;
+        type DelegateCurrency: Currency<Self::AccountId, Balance=Balance>;
+
+        type WeightInfoNftDelegate: WeightInfoNftDelegate;
     }
 
     #[pallet::event]
@@ -64,9 +69,6 @@ pub mod pallet {
     #[pallet::storage]
     pub type DelegateForSale<T: Config> = StorageValue<_, Vec<(TokenId, u32, Balance)>, ValueQuery>;
 
-    #[pallet::storage]
-    pub type CurrentBlock<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
-
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_finalize(n: BlockNumberFor<T>) {
@@ -78,19 +80,11 @@ pub mod pallet {
                     DelegatedTokens::<T>::remove(token_id);
                 });
         }
-
-        fn on_initialize(n: BlockNumberFor<T>) -> Weight {
-            let n = T::BlockNumber::from(n);
-
-            CurrentBlock::<T>::put(n);
-
-            T::DbWeight::get().writes(1)
-        }
     }
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        #[pallet::weight(90_000_000)]
+        #[pallet::weight(T::WeightInfoNftDelegate::delegate())]
         pub fn delegate(
             origin: OriginFor<T>,
             to: T::AccountId,
@@ -110,7 +104,7 @@ pub mod pallet {
             Ok(())
         }
 
-        #[pallet::weight(90_000_000)]
+        #[pallet::weight(T::WeightInfoNftDelegate::sell_delegate())]
         pub fn sell_delegate(
             origin: OriginFor<T>,
             token_id: TokenId,
@@ -130,7 +124,7 @@ pub mod pallet {
             Ok(())
         }
 
-        #[pallet::weight(90_000_000)]
+        #[pallet::weight(T::WeightInfoNftDelegate::buy_delegate())]
         pub fn buy_delegate(
             origin: OriginFor<T>,
             token_id: TokenId
@@ -143,7 +137,7 @@ pub mod pallet {
             Self::buy_delegate_nft(who, token_id)
         }
 
-        #[pallet::weight(90_000_000)]
+        #[pallet::weight(T::WeightInfoNftDelegate::change_price_delegate())]
         pub fn change_price_delegate(
             origin: OriginFor<T>,
             token_id: TokenId,
@@ -159,7 +153,7 @@ pub mod pallet {
             Ok(())
         }
 
-        #[pallet::weight(90_000_000)]
+        #[pallet::weight(T::WeightInfoNftDelegate::change_delegate_time_on_sale())]
         pub fn change_delegate_time_on_sale(
             origin: OriginFor<T>,
             token_id: TokenId,
@@ -176,7 +170,7 @@ pub mod pallet {
             Ok(())
         }
 
-        #[pallet::weight(90_000_000)]
+        #[pallet::weight(T::WeightInfoNftDelegate::remove_from_sell())]
         pub fn remove_from_sell(
             origin: OriginFor<T>,
             token_id: TokenId,
@@ -191,7 +185,7 @@ pub mod pallet {
             Ok(())
         }
 
-        #[pallet::weight(90_000_000)]
+        #[pallet::weight(T::WeightInfoNftDelegate::remove_delegate())]
         pub fn remove_delegate(
             origin: OriginFor<T>,
             token_id: TokenId
@@ -215,7 +209,7 @@ pub mod pallet {
             token_id: TokenId,
             delegated_time_in_blocks: u32,
         ){
-            let current_block = CurrentBlock::<T>::get();
+            let current_block: T::BlockNumber = frame_system::Pallet::<T>::current_block_number();
 
             let end_delegate_block = current_block + T::BlockNumber::from(delegated_time_in_blocks);
 
@@ -257,14 +251,14 @@ pub mod pallet {
             let to_seller = price - to_blockchain;
 
             let staking = Self::account_id_staking();
-            <T as pallet::Config>::Currency::transfer(
+            <T as pallet::Config>::DelegateCurrency::transfer(
                 &buyer,
                 &staking,
                 to_blockchain,
                 ExistenceRequirement::KeepAlive,
             )?;
 
-            <T as pallet::Config>::Currency::transfer(
+            <T as pallet::Config>::DelegateCurrency::transfer(
                 &buyer,
                 &owner,
                 to_seller,
@@ -341,10 +335,11 @@ pub mod pallet {
 
         pub fn account_id_staking() -> T::AccountId {
             <T as pallet_staking::Config>::PalletId::get().into_account()
+        }
 
         pub fn check_delegation_time(token_id: TokenId) -> DispatchResult {
             let end_delegation = DelegatedTokens::<T>::get(token_id).unwrap().1;
-            let current_block = CurrentBlock::<T>::get();
+            let current_block: T::BlockNumber = frame_system::Pallet::<T>::current_block_number();
 
             ensure!(current_block >= end_delegation, Error::<T>::NftStillDelegated);
             Ok(())

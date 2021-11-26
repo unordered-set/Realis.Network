@@ -1,6 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-
 use frame_support::dispatch;
 pub use pallet::*;
 use sp_std::prelude::*;
@@ -12,6 +11,7 @@ mod mock;
 mod tests;
 
 // Add benchmarking modules
+#[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 pub mod weights;
 pub use weights::WeightInfoNft;
@@ -213,7 +213,7 @@ pub mod pallet {
         }
 
         /// Add new nft_master
-        #[pallet::weight(T::WeightInfoNft::transfer())]
+        #[pallet::weight(90_000_000)]
         pub fn add_nft_master(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
             // Check is signed correct
             let who = ensure_signed(origin)?;
@@ -231,7 +231,7 @@ pub mod pallet {
         }
 
         /// Remove new nft_master
-        #[pallet::weight(T::WeightInfoNft::transfer())]
+        #[pallet::weight(90_000_000)]
         pub fn remove_nft_master(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
             // Check is signed correct
             let who = ensure_signed(origin)?;
@@ -351,7 +351,9 @@ pub mod pallet {
         pub fn is_nft_free(token_id: TokenId) -> DispatchResult {
             match Self::get_nft_status(token_id) {
                 None => Err(Error::<T>::NonExistentToken)?,
-                Some(Status::OnSell | Status::InDelegation | Status::OnDelegateSell) => Err(Error::<T>::NftAlreadyInUse)?,
+                Some(Status::OnSell | Status::InDelegation | Status::OnDelegateSell) => {
+                    Err(Error::<T>::NftAlreadyInUse)?
+                }
                 Some(Status::Free) => {}
             }
 
