@@ -6,9 +6,13 @@ use frame_system::ensure_signed;
 pub use realis_primitives::{Status, TokenId, TokenType};
 use sp_std::prelude::*;
 
+#[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 mod mock;
 mod tests;
+
+pub mod weights;
+pub use weights::WeightInfoBridge;
 
 pub use pallet::*;
 
@@ -40,6 +44,8 @@ pub mod pallet {
         type BridgeCurrency: Currency<Self::AccountId, Balance = Self::Balance>;
 
         type PalletId: Get<PalletId>;
+
+        type WeightInfoBridge: WeightInfoBridge;
     }
 
     #[pallet::event]
@@ -125,10 +131,9 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        #[pallet::weight(10000)]
+        #[pallet::weight(T::WeightInfoBridge::transfer_token_to_bsc())]
         pub fn transfer_token_to_bsc(
             origin: OriginFor<T>,
-            from: T::AccountId,
             to: H160,
             #[pallet::compact] value: T::Balance,
         ) -> DispatchResult {
@@ -138,22 +143,17 @@ pub mod pallet {
 
             let pallet_id = Self::account_id();
             <T as Config>::BridgeCurrency::transfer(
-                &from,
+                &who,
                 &pallet_id,
                 value,
                 ExistenceRequirement::KeepAlive,
             )?;
 
-            Self::deposit_event(Event::<T>::SendTokensToBsc(
-                from.clone(),
-                to,
-                value,
-                balance,
-            ));
+            Self::deposit_event(Event::<T>::SendTokensToBsc(who, to, value, balance));
             Ok(())
         }
 
-        #[pallet::weight(10000)]
+        #[pallet::weight(T::WeightInfoBridge::transfer_token_to_realis())]
         pub fn transfer_token_to_realis(
             origin: OriginFor<T>,
             from: H160,
@@ -177,7 +177,7 @@ pub mod pallet {
             Ok(())
         }
 
-        #[pallet::weight(90000000)]
+        #[pallet::weight(10000)]
         pub fn balance_pallet(origin: OriginFor<T>) -> DispatchResult {
             let who = ensure_signed(origin)?;
             ensure!(
@@ -191,19 +191,16 @@ pub mod pallet {
             Ok(())
         }
 
-        #[pallet::weight(10000)]
+        #[pallet::weight(T::WeightInfoBridge::transfer_nft_to_bsc())]
         #[allow(irrefutable_let_patterns)]
         pub fn transfer_nft_to_bsc(
             origin: OriginFor<T>,
-            from: T::AccountId,
             to: H160,
             value: TokenId,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
-            // Only owner can transfer token
-            ensure!(who == from, Error::<T>::NotTokenOwner);
 
-            let tokens = Nft::TokensList::<T>::get(from.clone()).unwrap();
+            let tokens = Nft::TokensList::<T>::get(who.clone());
             for token in tokens {
                 if token.0.id == value {
                     ensure!(
@@ -214,18 +211,22 @@ pub mod pallet {
                         token.1 != Status::InDelegation,
                         Error::<T>::CannotTransferNftBecauseThisNftOnAnotherUser
                     );
+                    ensure!(
+                        token.1 != Status::OnDelegateSell,
+                        Error::<T>::CannotTransferNftBecauseThisNftOnAnotherUser
+                    );
                 };
             }
 
             let pallet_id = Self::account_id();
 
-            Nft::Pallet::<T>::transfer_nft(&pallet_id, &from, value)?;
+            Nft::Pallet::<T>::transfer_nft(&pallet_id, &who, value)?;
 
-            Self::deposit_event(Event::<T>::TransferNftToBSC(from.clone(), to, value));
+            Self::deposit_event(Event::<T>::TransferNftToBSC(who.clone(), to, value));
             Ok(())
         }
 
-        #[pallet::weight(10000)]
+        #[pallet::weight(T::WeightInfoBridge::transfer_nft_to_realis())]
         pub fn transfer_nft_to_realis(
             origin: OriginFor<T>,
             from: H160,
