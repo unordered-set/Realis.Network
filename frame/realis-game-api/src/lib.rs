@@ -18,6 +18,7 @@ pub use weights::WeightInfoRealis;
 
 #[frame_support::pallet]
 pub mod pallet {
+    use sp_std::collections::btree_map::BTreeMap;
     use super::*;
     use frame_support::pallet_prelude::*;
     use frame_support::sp_runtime::traits::AccountIdConversion;
@@ -114,7 +115,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn whitelist)]
-    pub type Whitelist<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
+    pub type Whitelist<T: Config> = StorageValue<_, BTreeMap<T::AccountId, ()>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn validator_whitelist)]
@@ -172,7 +173,8 @@ pub mod pallet {
             let who = ensure_signed(origin.clone())?;
             ensure!(Self::api_masters().contains(&who), Error::<T>::NotApiMaster);
             ensure!(
-                Self::whitelist().contains(&target_account),
+                Whitelist::<T>::get()
+                    .contains_key(&target_account),
                 Error::<T>::UserNotFoundInWhitelist
             );
 
@@ -203,7 +205,7 @@ pub mod pallet {
             let who = ensure_signed(origin.clone())?;
             ensure!(Self::api_masters().contains(&who), Error::<T>::NotApiMaster);
             ensure!(
-                Self::whitelist().contains(&from),
+                Self::whitelist().contains_key(&from),
                 Error::<T>::UserNotFoundInWhitelist
             );
             let tokens = NFT::TokensList::<T>::get(from.clone());
@@ -238,11 +240,11 @@ pub mod pallet {
             let who = ensure_signed(origin.clone())?;
             ensure!(Self::api_masters().contains(&who), Error::<T>::NotApiMaster);
             ensure!(
-                Self::whitelist().contains(&from),
+                Self::whitelist().contains_key(&from),
                 Error::<T>::UserNotFoundInWhitelist
             );
             ensure!(
-                Self::whitelist().contains(&dest),
+                Self::whitelist().contains_key(&dest),
                 Error::<T>::UserNotFoundInWhitelist
             );
             let tokens = NFT::TokensList::<T>::get(from.clone());
@@ -277,7 +279,7 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
             ensure!(Self::api_masters().contains(&who), Error::<T>::NotApiMaster);
             ensure!(
-                Self::whitelist().contains(&dest),
+                Self::whitelist().contains_key(&dest),
                 Error::<T>::UserNotFoundInWhitelist
             );
             let pallet_id = Self::account_id();
@@ -300,7 +302,7 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
             ensure!(Self::api_masters().contains(&who), Error::<T>::NotApiMaster);
             ensure!(
-                Self::whitelist().contains(&from),
+                Self::whitelist().contains_key(&from),
                 Error::<T>::UserNotFoundInWhitelist
             );
             let pallet_id = Self::account_id();
@@ -324,7 +326,7 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
             ensure!(Self::api_masters().contains(&who), Error::<T>::NotApiMaster);
             ensure!(
-                Self::whitelist().contains(&dest),
+                Self::whitelist().contains_key(&dest),
                 Error::<T>::UserNotFoundInWhitelist
             );
             <T as Config>::ApiCurrency::transfer(
@@ -346,7 +348,7 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
             ensure!(Self::api_masters().contains(&who), Error::<T>::NotApiMaster);
             ensure!(
-                Self::whitelist().contains(&dest),
+                Self::whitelist().contains_key(&dest),
                 Error::<T>::UserNotFoundInWhitelist
             );
             let imbalance = <T as Config>::ApiCurrency::withdraw(
@@ -414,12 +416,12 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
             // Check if account that signed operation have permission for this operation
             ensure!(
-                !Self::whitelist().contains(&who),
+                !Self::whitelist().contains_key(&who),
                 Error::<T>::AccountAlreadyInWhitelist
             );
 
             Whitelist::<T>::mutate(|member_whitelist| {
-                member_whitelist.push(who.clone());
+                member_whitelist.insert(who.clone(), ());
             });
 
             Self::deposit_event(Event::AddToWhiteList(who));
@@ -434,8 +436,7 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
             // Check if account that signed operation have permission for this operation
             Whitelist::<T>::mutate(|member_whitelist| {
-                let index = member_whitelist.iter().position(|token| *token == who);
-                member_whitelist.remove(index.unwrap())
+                member_whitelist.remove(&who)
             });
             Ok(())
         }
@@ -449,7 +450,7 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
             // Check if account that signed operation have permission for this operation
             ensure!(
-                !Self::whitelist().contains(&who),
+                !Self::whitelist().contains_key(&who),
                 Error::<T>::AccountAlreadyInWhitelist
             );
 
@@ -485,7 +486,7 @@ pub mod pallet {
             ensure!(Self::api_masters().contains(&who), Error::<T>::NotApiMaster);
 
             ensure!(
-                Self::whitelist().contains(&account_id),
+                Self::whitelist().contains_key(&account_id),
                 Error::<T>::UserNotFoundInWhitelist
             );
 
@@ -515,7 +516,7 @@ pub mod pallet {
             ensure!(Self::api_masters().contains(&who), Error::<T>::NotApiMaster);
 
             ensure!(
-                Self::whitelist().contains(&account_id),
+                Self::whitelist().contains_key(&account_id),
                 Error::<T>::UserNotFoundInWhitelist
             );
 
@@ -534,7 +535,7 @@ pub mod pallet {
             ensure!(Self::api_masters().contains(&who), Error::<T>::NotApiMaster);
 
             ensure!(
-                Self::whitelist().contains(&account_id),
+                Self::whitelist().contains_key(&account_id),
                 Error::<T>::UserNotFoundInWhitelist
             );
 
@@ -552,7 +553,7 @@ pub mod pallet {
             ensure!(Self::api_masters().contains(&who), Error::<T>::NotApiMaster);
 
             ensure!(
-                Self::whitelist().contains(&account_id),
+                Self::whitelist().contains_key(&account_id),
                 Error::<T>::UserNotFoundInWhitelist
             );
 
@@ -571,7 +572,7 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
             ensure!(Self::api_masters().contains(&who), Error::<T>::NotApiMaster);
             ensure!(
-                Self::whitelist().contains(&from),
+                Self::whitelist().contains_key(&from),
                 Error::<T>::UserNotFoundInWhitelist
             );
             let owner =
@@ -597,7 +598,7 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
             ensure!(Self::api_masters().contains(&who), Error::<T>::NotApiMaster);
             ensure!(
-                Self::whitelist().contains(&seller),
+                Self::whitelist().contains_key(&seller),
                 Error::<T>::UserNotFoundInWhitelist
             );
             let owner =
@@ -626,7 +627,7 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
             ensure!(Self::api_masters().contains(&who), Error::<T>::NotApiMaster);
             ensure!(
-                Self::whitelist().contains(&buyer),
+                Self::whitelist().contains_key(&buyer),
                 Error::<T>::UserNotFoundInWhitelist
             );
             let owner =
@@ -646,7 +647,7 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
             ensure!(Self::api_masters().contains(&who), Error::<T>::NotApiMaster);
             ensure!(
-                Self::whitelist().contains(&seller),
+                Self::whitelist().contains_key(&seller),
                 Error::<T>::UserNotFoundInWhitelist
             );
             let owner =
@@ -668,7 +669,7 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
             ensure!(Self::api_masters().contains(&who), Error::<T>::NotApiMaster);
             ensure!(
-                Self::whitelist().contains(&seller),
+                Self::whitelist().contains_key(&seller),
                 Error::<T>::UserNotFoundInWhitelist
             );
             let owner =
@@ -691,7 +692,7 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
             ensure!(Self::api_masters().contains(&who), Error::<T>::NotApiMaster);
             ensure!(
-                Self::whitelist().contains(&seller),
+                Self::whitelist().contains_key(&seller),
                 Error::<T>::UserNotFoundInWhitelist
             );
             let owner =
@@ -713,7 +714,7 @@ pub mod pallet {
 
             ensure!(Self::api_masters().contains(&who), Error::<T>::NotApiMaster);
             ensure!(
-                Self::whitelist().contains(&delegator),
+                Self::whitelist().contains_key(&delegator),
                 Error::<T>::UserNotFoundInWhitelist
             );
 
