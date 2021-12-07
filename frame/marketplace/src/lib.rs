@@ -81,7 +81,11 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::weight(T::WeightInfoMarketplace::sell_nft())]
-        pub fn sell_nft(origin: OriginFor<T>, token_id: TokenId, price: Balance) -> DispatchResult {
+        pub fn sell_nft(
+            origin: OriginFor<T>,
+            token_id: TokenId,
+            #[pallet::compact] price: Balance
+        ) -> DispatchResult {
             let who = ensure_signed(origin)?;
             let owner = pallet_nft::AccountForToken::<T>::get(token_id)
                 .ok_or(Error::<T>::NonExistentToken)?;
@@ -116,7 +120,7 @@ pub mod pallet {
         pub fn change_price_nft(
             origin: OriginFor<T>,
             token_id: TokenId,
-            price: Balance,
+            #[pallet::compact] price: Balance,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
             let owner = pallet_nft::AccountForToken::<T>::get(token_id)
@@ -155,7 +159,7 @@ pub mod pallet {
             seller: <T as frame_system::Config>::AccountId,
             token_id: TokenId,
             rarity: Rarity,
-            price: Balance,
+            #[pallet::compact] price: Balance,
         ) {
             NFTForSaleInAccount::<T>::mutate(seller.clone(), |tokens| {
                 tokens
@@ -221,7 +225,7 @@ pub mod pallet {
         pub fn change_price(
             owner: <T as frame_system::Config>::AccountId,
             token_id: TokenId,
-            new_price: Balance,
+            #[pallet::compact] new_price: Balance,
         ) {
             NFTForSaleInAccount::<T>::mutate(&owner, |tokens| {
                 tokens
